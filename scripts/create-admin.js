@@ -1,7 +1,7 @@
 
 require("dotenv").config();
 const { createClient } = require("@supabase/supabase-js");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
