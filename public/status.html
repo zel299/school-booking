@@ -1,0 +1,156 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IT Tech Cafe - Track Booking</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <header>
+    <div class="header-container">
+      <a href="/index.html" class="site-title">⚙️ IT Service Hub</a>
+      <nav>
+        <a href="/index.html">Services</a>
+        <a href="/book.html">Book Now</a>
+        <a href="/status.html" class="active">Track Status</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h1 class="page-title">Track Your Booking</h1>
+      <p class="page-subtitle">Enter your reference code to check the live status of your reservation.</p>
+    </div>
+
+    <div class="card">
+      <form id="lookup-form" novalidate>
+        <div class="form-group">
+          <label for="reference_input">Reference Code *</label>
+          <input type="text" id="reference_input" placeholder="e.g. BK-X89K2L" style="text-transform: uppercase;">
+          <div id="err-reference" class="error-msg"></div>
+        </div>
+
+        <button type="submit" id="search-btn" class="btn btn-secondary">
+          <span id="btn-text">Lookup Reservation</span>
+        </button>
+      </form>
+    </div>
+
+    <div id="banner" class="banner hidden"></div>
+
+    <div id="result-card" class="card hidden">
+      <h2 style="font-size: 1.25rem; margin-bottom: 1rem;">Booking Details</h2>
+      
+      <div class="summary-list">
+        <div class="summary-item">
+          <span class="summary-label">Reference</span>
+          <span id="res-ref" class="summary-value">---</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Status</span>
+          <span id="res-status" class="summary-value">---</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Service</span>
+          <span id="res-service" class="summary-value">---</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Date</span>
+          <span id="res-date" class="summary-value">---</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Time</span>
+          <span id="res-time" class="summary-value">---</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Guests / Devices</span>
+          <span id="res-guests" class="summary-value">---</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Name</span>
+          <span id="res-name" class="summary-value">---</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Notes</span>
+          <span id="res-notes" class="summary-value">---</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const form = document.getElementById("lookup-form");
+      const refInput = document.getElementById("reference_input");
+      const errRef = document.getElementById("err-reference");
+      const searchBtn = document.getElementById("search-btn");
+      const btnText = document.getElementById("btn-text");
+      const banner = document.getElementById("banner");
+      const resultCard = document.getElementById("result-card");
+
+      function formatDateReadable(dateStr) {
+        const options = { year: "numeric", month: "long", day: "numeric" };
+        return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", options);
+      }
+
+      function formatTime12Hr(time24) {
+        const [h, m] = time24.split(":");
+        let hour = parseInt(h);
+        const period = hour >= 12 ? "PM" : "AM";
+        hour = hour % 12 || 12;
+        return `${hour}:${m} ${period}`;
+      }
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        errRef.textContent = "";
+        banner.classList.add("hidden");
+        resultCard.classList.add("hidden");
+
+        const ref = refInput.value.trim().toUpperCase();
+
+        if (!ref) {
+          errRef.textContent = "Please enter a reference code.";
+          return;
+        }
+
+        searchBtn.disabled = true;
+        btnText.textContent = "Searching...";
+
+        try {
+          const res = await fetch(`/api/bookings/${encodeURIComponent(ref)}`);
+          const data = await res.json();
+
+          if (res.ok) {
+            document.getElementById("res-ref").textContent = data.reference;
+            document.getElementById("res-status").innerHTML = `<span class="badge badge-${data.status}">${data.status}</span>`;
+            document.getElementById("res-service").textContent = data.services ? data.services.name : "N/A";
+            document.getElementById("res-date").textContent = formatDateReadable(data.booking_date);
+            document.getElementById("res-time").textContent = formatTime12Hr(data.booking_time);
+            document.getElementById("res-guests").textContent = data.guests;
+            document.getElementById("res-name").textContent = data.name;
+            document.getElementById("res-notes").textContent = data.notes || "None";
+
+            resultCard.classList.remove("hidden");
+          } else {
+            banner.textContent = data.error || "No booking found with that reference code.";
+            banner.className = "banner banner-error";
+            banner.classList.remove("hidden");
+          }
+        } catch (err) {
+          banner.textContent = "Error checking booking status. Please try again.";
+          banner.className = "banner banner-error";
+          banner.classList.remove("hidden");
+        } finally {
+          searchBtn.disabled = false;
+          btnText.textContent = "Lookup Reservation";
+        }
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,156 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IT Tech Cafe - Booking Confirmed</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <header>
+    <div class="header-container">
+      <a href="/index.html" class="site-title">⚙️ IT Service Hub</a>
+      <nav>
+        <a href="/index.html">Services</a>
+        <a href="/book.html">Book Now</a>
+        <a href="/status.html">Track Status</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="loading-state" class="state-box">
+      <p>Fetching reservation details...</p>
+    </div>
+
+    <div id="error-state" class="state-box hidden">
+      <h2 style="color: var(--danger); margin-bottom: 0.5rem;">Booking Not Found</h2>
+      <p>We could not retrieve the booking details for that reference code.</p>
+      <br>
+      <a href="/index.html" class="btn btn-outline" style="max-width: 200px; margin: 0 auto;">Return Home</a>
+    </div>
+
+    <div id="confirmation-content" class="card hidden">
+      <div style="text-align: center; margin-bottom: 1rem;">
+        <h1 class="page-title">🎉 Booking Submitted!</h1>
+        <p class="page-subtitle">Your appointment has been created and is pending confirmation.</p>
+      </div>
+
+      <div class="ref-display">
+        <p style="font-size: 0.875rem; color: var(--text-muted); font-weight: 600;">YOUR REFERENCE NUMBER</p>
+        <div id="ref-number" class="ref-number">BK-XXXXXX</div>
+        <button id="copy-btn" class="btn btn-outline" style="max-width: 180px; margin: 0 auto;">Copy Code</button>
+        <p id="copy-feedback" style="font-size: 0.8rem; color: var(--primary); margin-top: 0.5rem;" class="hidden">Copied to clipboard!</p>
+      </div>
+
+      <h2 style="font-size: 1.1rem; margin-bottom: 1rem;">Reservation Summary</h2>
+
+      <div class="summary-list">
+        <div class="summary-item">
+          <span class="summary-label">Service</span>
+          <span id="sum-service" class="summary-value">---</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Date</span>
+          <span id="sum-date" class="summary-value">---</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Time</span>
+          <span id="sum-time" class="summary-value">---</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Guests / Devices</span>
+          <span id="sum-guests" class="summary-value">---</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Reserved For</span>
+          <span id="sum-name" class="summary-value">---</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Contact</span>
+          <span id="sum-contact" class="summary-value">---</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Email</span>
+          <span id="sum-email" class="summary-value">---</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Status</span>
+          <span id="sum-status" class="summary-value">---</span>
+        </div>
+      </div>
+
+      <a href="/status.html" class="btn btn-secondary">Track Booking Status</a>
+    </div>
+  </main>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const ref = urlParams.get("ref");
+
+      const loadingState = document.getElementById("loading-state");
+      const errorState = document.getElementById("error-state");
+      const confirmationContent = document.getElementById("confirmation-content");
+
+      const refNumber = document.getElementById("ref-number");
+      const copyBtn = document.getElementById("copy-btn");
+      const copyFeedback = document.getElementById("copy-feedback");
+
+      if (!ref) {
+        loadingState.classList.add("hidden");
+        errorState.classList.remove("hidden");
+        return;
+      }
+
+      function formatDateReadable(dateStr) {
+        const options = { year: "numeric", month: "long", day: "numeric" };
+        return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", options);
+      }
+
+      function formatTime12Hr(time24) {
+        const [h, m] = time24.split(":");
+        let hour = parseInt(h);
+        const period = hour >= 12 ? "PM" : "AM";
+        hour = hour % 12 || 12;
+        return `${hour}:${m} ${period}`;
+      }
+
+      try {
+        const res = await fetch(`/api/bookings/${encodeURIComponent(ref)}`);
+        if (!res.ok) throw new Error("Reference not found");
+
+        const booking = await res.json();
+
+        loadingState.classList.add("hidden");
+        confirmationContent.classList.remove("hidden");
+
+        refNumber.textContent = booking.reference;
+        document.getElementById("sum-service").textContent = booking.services ? booking.services.name : "N/A";
+        document.getElementById("sum-date").textContent = formatDateReadable(booking.booking_date);
+        document.getElementById("sum-time").textContent = formatTime12Hr(booking.booking_time);
+        document.getElementById("sum-guests").textContent = booking.guests;
+        document.getElementById("sum-name").textContent = booking.name;
+        document.getElementById("sum-contact").textContent = booking.contact;
+        document.getElementById("sum-email").textContent = booking.email;
+        
+        const statusEl = document.getElementById("sum-status");
+        statusEl.innerHTML = `<span class="badge badge-${booking.status}">${booking.status}</span>`;
+
+      } catch (err) {
+        loadingState.classList.add("hidden");
+        errorState.classList.remove("hidden");
+      }
+
+      copyBtn.addEventListener("click", () => {
+        navigator.clipboard.writeText(refNumber.textContent).then(() => {
+          copyFeedback.classList.remove("hidden");
+          setTimeout(() => copyFeedback.classList.add("hidden"), 3000);
+        });
+      });
+    });
+  </script>
+</body>
+</html>

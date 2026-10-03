@@ -1,0 +1,290 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IT Tech Cafe - Make a Booking</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <header>
+    <div class="header-container">
+      <a href="/index.html" class="site-title">⚙️ IT Service Hub</a>
+      <nav>
+        <a href="/index.html">Services</a>
+        <a href="/book.html" class="active">Book Now</a>
+        <a href="/status.html">Track Status</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h1 class="page-title">Reserve a Slot</h1>
+      <p class="page-subtitle">Fill out the required information to make your appointment.</p>
+    </div>
+
+    <div id="banner" class="banner hidden"></div>
+
+    <div class="card">
+      <form id="booking-form" novalidate>
+        
+        <div class="form-group">
+          <label for="service_id">Service *</label>
+          <select id="service_id" name="service_id">
+            <option value="">-- Select a Service --</option>
+          </select>
+          <div id="err-service_id" class="error-msg"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="booking_date">Date *</label>
+          <input type="date" id="booking_date" name="booking_date">
+          <div id="err-booking_date" class="error-msg"></div>
+        </div>
+
+        <div class="form-group">
+          <label>Time Slot (07:00 AM - 05:00 PM) *</label>
+          <div id="time-slots-container" class="time-slots-grid"></div>
+          <input type="hidden" id="booking_time" name="booking_time">
+          <div id="err-booking_time" class="error-msg"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="guests">Number of Guests / Devices *</label>
+          <input type="number" id="guests" name="guests" min="1" max="10" value="1">
+          <div id="err-guests" class="error-msg"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="name">Full Name *</label>
+          <input type="text" id="name" name="name" placeholder="e.g. Juan Dela Cruz">
+          <div id="err-name" class="error-msg"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="contact">Contact Number *</label>
+          <input type="text" id="contact" name="contact" placeholder="e.g. 09171234567">
+          <div id="err-contact" class="error-msg"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email Address *</label>
+          <input type="email" id="email" name="email" placeholder="e.g. juan@example.com">
+          <div id="err-email" class="error-msg"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="notes">Additional Notes / Device Details</label>
+          <textarea id="notes" name="notes" placeholder="Any specific requirements or technical descriptions..."></textarea>
+          <div id="err-notes" class="error-msg"></div>
+        </div>
+
+        <button type="submit" id="submit-btn" class="btn btn-primary">
+          <span id="btn-text">Submit Booking</span>
+        </button>
+      </form>
+    </div>
+  </main>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      const form = document.getElementById("booking-form");
+      const serviceSelect = document.getElementById("service_id");
+      const dateInput = document.getElementById("booking_date");
+      const timeSlotsContainer = document.getElementById("time-slots-container");
+      const bookingTimeInput = document.getElementById("booking_time");
+      const submitBtn = document.getElementById("submit-btn");
+      const btnText = document.getElementById("btn-text");
+      const banner = document.getElementById("banner");
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const preselectedServiceId = urlParams.get("service");
+
+      // Set min date to today
+      const todayStr = new Date().toISOString().split("T")[0];
+      dateInput.min = todayStr;
+
+      // Generate 30-min time slots from 07:00 to 17:00
+      generateTimeSlots();
+
+      function generateTimeSlots() {
+        timeSlotsContainer.innerHTML = "";
+        let currentHour = 7;
+        let currentMinute = 0;
+
+        while (currentHour < 17 || (currentHour === 17 && currentMinute === 0)) {
+          const hh = String(currentHour).padStart(2, "0");
+          const mm = String(currentMinute).padStart(2, "0");
+          const time24 = `${hh}:${mm}`;
+
+          let period = currentHour >= 12 ? "PM" : "AM";
+          let displayHour = currentHour % 12;
+          if (displayHour === 0) displayHour = 12;
+          const timeDisplay = `${displayHour}:${mm} ${period}`;
+
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "time-slot-btn";
+          btn.textContent = timeDisplay;
+          btn.dataset.time = time24;
+
+          btn.addEventListener("click", () => {
+            document.querySelectorAll(".time-slot-btn").forEach(b => b.classList.remove("selected"));
+            btn.classList.add("selected");
+            bookingTimeInput.value = time24;
+            clearError("booking_time");
+          });
+
+          timeSlotsContainer.appendChild(btn);
+
+          currentMinute += 30;
+          if (currentMinute >= 60) {
+            currentMinute = 0;
+            currentHour += 1;
+          }
+        }
+      }
+
+      // Load Services Dropdown
+      try {
+        const res = await fetch("/api/services");
+        if (res.ok) {
+          const services = await res.json();
+          services.forEach(s => {
+            const opt = document.createElement("option");
+            opt.value = s.id;
+            opt.textContent = `${s.name} (₱${parseFloat(s.price).toFixed(2)})`;
+            if (preselectedServiceId && s.id.toString() === preselectedServiceId) {
+              opt.selected = true;
+            }
+            serviceSelect.appendChild(opt);
+          });
+        }
+      } catch (err) {
+        showBanner("Failed to load services list.", "error");
+      }
+
+      function clearErrors() {
+        document.querySelectorAll(".error-msg").forEach(el => el.textContent = "");
+        banner.classList.add("hidden");
+      }
+
+      function clearError(fieldId) {
+        const errEl = document.getElementById(`err-${fieldId}`);
+        if (errEl) errEl.textContent = "";
+      }
+
+      function setError(fieldId, msg) {
+        const errEl = document.getElementById(`err-${fieldId}`);
+        if (errEl) errEl.textContent = msg;
+      }
+
+      function showBanner(msg, type) {
+        banner.textContent = msg;
+        banner.className = `banner banner-${type}`;
+        banner.classList.remove("hidden");
+      }
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        clearErrors();
+
+        let isValid = true;
+
+        const service_id = serviceSelect.value;
+        const booking_date = dateInput.value;
+        const booking_time = bookingTimeInput.value;
+        const guests = document.getElementById("guests").value;
+        const name = document.getElementById("name").value.trim();
+        const contact = document.getElementById("contact").value.trim();
+        const email = document.getElementById("email").value.trim();
+        const notes = document.getElementById("notes").value.trim();
+
+        if (!service_id) {
+          setError("service_id", "Please select a service.");
+          isValid = false;
+        }
+
+        if (!booking_date) {
+          setError("booking_date", "Please pick a date.");
+          isValid = false;
+        } else if (booking_date < todayStr) {
+          setError("booking_date", "Date cannot be in the past.");
+          isValid = false;
+        }
+
+        if (!booking_time) {
+          setError("booking_time", "Please select a time slot.");
+          isValid = false;
+        } else if (booking_time < "07:00" || booking_time > "17:00") {
+          setError("booking_time", "Time must be between 07:00 AM and 05:00 PM.");
+          isValid = false;
+        }
+
+        if (!guests || parseInt(guests) < 1) {
+          setError("guests", "Please specify at least 1 guest/device.");
+          isValid = false;
+        }
+
+        if (!name) {
+          setError("name", "Full name is required.");
+          isValid = false;
+        }
+
+        if (!contact) {
+          setError("contact", "Contact number is required.");
+          isValid = false;
+        }
+
+        if (!email) {
+          setError("email", "Email address is required.");
+          isValid = false;
+        } else if (!/\S+@\S+\.\S+/.test(email)) {
+          setError("email", "Please enter a valid email address.");
+          isValid = false;
+        }
+
+        if (!isValid) return;
+
+        // Loading State
+        submitBtn.disabled = true;
+        btnText.textContent = "Submitting Booking...";
+
+        try {
+          const res = await fetch("/api/bookings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              service_id,
+              booking_date,
+              booking_time,
+              guests,
+              name,
+              contact,
+              email,
+              notes
+            })
+          });
+
+          const data = await res.json();
+
+          if (res.ok && data.reference) {
+            window.location.href = `/confirmation.html?ref=${encodeURIComponent(data.reference)}`;
+          } else {
+            showBanner(data.error || "Submission failed. Please try again.", "error");
+            submitBtn.disabled = false;
+            btnText.textContent = "Submit Booking";
+          }
+        } catch (err) {
+          showBanner("Network error. Please check your connection.", "error");
+          submitBtn.disabled = false;
+          btnText.textContent = "Submit Booking";
+        }
+      });
+    });
+  </script>
+</body>
+</html>

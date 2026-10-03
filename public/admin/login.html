@@ -1,0 +1,123 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IT Tech Cafe - Admin Login</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <header>
+    <div class="header-container">
+      <a href="/index.html" class="site-title">⚙️ IT Service Hub (Admin)</a>
+      <nav>
+        <a href="/index.html">Visitor Site</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div style="max-width: 420px; margin: 2rem auto;" class="card">
+      <div class="page-header" style="margin-bottom: 1.5rem; text-align: center;">
+        <h1 class="page-title">Admin Portal</h1>
+        <p class="page-subtitle">Please sign in to access the dashboard.</p>
+      </div>
+
+      <div id="banner" class="banner hidden"></div>
+
+      <form id="login-form" novalidate>
+        <div class="form-group">
+          <label for="username">Username *</label>
+          <input type="text" id="username" name="username" placeholder="Enter username">
+          <div id="err-username" class="error-msg"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password *</label>
+          <input type="password" id="password" name="password" placeholder="Enter password">
+          <div id="err-password" class="error-msg"></div>
+        </div>
+
+        <button type="submit" id="submit-btn" class="btn btn-primary">
+          <span id="btn-text">Log In</span>
+        </button>
+      </form>
+    </div>
+  </main>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const form = document.getElementById("login-form");
+      const usernameInput = document.getElementById("username");
+      const passwordInput = document.getElementById("password");
+      const submitBtn = document.getElementById("submit-btn");
+      const btnText = document.getElementById("btn-text");
+      const banner = document.getElementById("banner");
+
+      function clearErrors() {
+        document.querySelectorAll(".error-msg").forEach(el => el.textContent = "");
+        banner.classList.add("hidden");
+      }
+
+      function setError(fieldId, msg) {
+        const errEl = document.getElementById(`err-${fieldId}`);
+        if (errEl) errEl.textContent = msg;
+      }
+
+      function showBanner(msg, type) {
+        banner.textContent = msg;
+        banner.className = `banner banner-${type}`;
+        banner.classList.remove("hidden");
+      }
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        clearErrors();
+
+        let isValid = true;
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value;
+
+        if (!username) {
+          setError("username", "Username is required.");
+          isValid = false;
+        }
+
+        if (!password) {
+          setError("password", "Password is required.");
+          isValid = false;
+        }
+
+        if (!isValid) return;
+
+        submitBtn.disabled = true;
+        btnText.textContent = "Authenticating...";
+
+        try {
+          const res = await fetch("/api/admin/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password })
+          });
+
+          const data = await res.json();
+
+          if (res.ok) {
+            window.location.href = "/admin/dashboard.html";
+          } else {
+            showBanner(data.error || "Invalid credentials.", "error");
+            submitBtn.disabled = false;
+            btnText.textContent = "Log In";
+          }
+        } catch (err) {
+          showBanner("Network error. Please try again.", "error");
+          submitBtn.disabled = false;
+          btnText.textContent = "Log In";
+        }
+      });
+    });
+  </script>
+</body>
+</html>

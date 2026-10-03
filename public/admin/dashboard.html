@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IT Tech Cafe - Admin Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin-top: var(--space-md);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 800px;
+      font-size: 0.875rem;
+    }
+
+    th, td {
+      padding: var(--space-md);
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    th {
+      background-color: var(--bg);
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .table-actions {
+      display: flex;
+      gap: var(--space-xs);
+    }
+
+    .table-actions .btn {
+      min-height: 36px;
+      padding: 0 0.75rem;
+      font-size: 0.8rem;
+      width: auto;
+    }
+
+    .filter-bar {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-md);
+      margin-bottom: var(--space-md);
+    }
+
+    @media (min-width: 640px) {
+      .filter-bar {
+        flex-direction: row;
+        align-items: center;
+      }
+
+      .filter-bar .search-group {
+        flex: 1;
+      }
+
+      .filter-bar .status-group {
+        width: 200px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-container">
+      <a href="/admin/dashboard.html" class="site-title">⚙️ Admin Dashboard</a>
+      <nav>
+        <button id="logout-btn" class="btn btn-outline" style="min-height: 36px; padding: 0 0.75rem; width: auto;">Logout</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: var(--space-md);">
+      <div>
+        <h1 class="page-title">Booking Management</h1>
+        <p class="page-subtitle">View and manage all activity reservations.</p>
+      </div>
+      <button id="refresh-btn" class="btn btn-outline" style="width: auto;">Refresh List</button>
+    </div>
+
+    <div id="banner" class="banner hidden"></div>
+
+    <div class="card">
+      <div class="filter-bar">
+        <div class="search-group">
+          <label for="search-input" class="hidden">Search</label>
+          <input type="text" id="search-input" placeholder="Search reference, name, or contact...">
+        </div>
+        <div class="status-group">
+          <label for="status-filter" class="hidden">Filter Status</label>
+          <select id="status-filter">
+            <option value="all">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="loading-state" class="state-box">
+        <p>Loading bookings...</p>
+      </div>
+
+      <div id="empty-state" class="state-box hidden">
+        <p>No bookings yet.</p>
+      </div>
+
+      <div id="table-container" class="table-wrapper hidden">
+        <table>
+          <thead>
+            <tr>
+              <th>Ref</th>
+              <th>Service</th>
+              <th>Customer</th>
+              <th>Contact</th>
+              <th>Date & Time</th>
+              <th>Guests</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="bookings-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const logoutBtn = document.getElementById("logout-btn");
+      const refreshBtn = document.getElementById("refresh-btn");
+      const searchInput = document.getElementById("search-input");
+      const statusFilter = document.getElementById("status-filter");
+      const tbody = document.getElementById("bookings-tbody");
+      const loadingState = document.getElementById("loading-state");
+      const emptyState = document.getElementById("empty-state");
+      const tableContainer = document.getElementById("table-container");
+      const banner = document.getElementById("banner");
+
+      let allBookings = [];
+
+      fetchBookings();
+
+      function showBanner(msg, type) {
+        banner.textContent = msg;
+        banner.className = `banner banner-${type}`;
+        banner.classList.remove("hidden");
+        setTimeout(() => banner.classList.add("hidden"), 4000);
+      }
+
+      function handleAuthError(res) {
+        if (res.status === 401) {
+          window.location.href = "/admin/login.html";
+          return true;
+        }
+        return false;
+      }
+
+      function formatDateReadable(dateStr) {
+        const options = { year: "numeric", month: "short", day: "numeric" };
+        return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", options);
+      }
+
+      function formatTime12Hr(time24) {
+        if (!time24) return "";
+        const [h, m] = time24.split(":");
+        let hour = parseInt(h);
+        const period = hour >= 12 ? "PM" : "AM";
+        hour = hour % 12 || 12;
+        return `${hour}:${m} ${period}`;
+      }
+
+      async function fetchBookings() {
+        loadingState.classList.remove("hidden");
+        emptyState.classList.add("hidden");
+        tableContainer.classList.add("hidden");
+
+        try {
+          const res = await fetch("/api/admin/bookings");
+          if (handleAuthError(res)) return;
+
+          if (!res.ok) throw new Error("Failed to load bookings.");
+
+          allBookings = await res.json();
+          renderTable();
+        } catch (err) {
+          loadingState.classList.add("hidden");
+          showBanner(err.message || "Error fetching bookings.", "error");
+        }
+      }
+
+      function renderTable() {
+        loadingState.classList.add("hidden");
+
+        const searchTerm = searchInput.value.toLowerCase().trim();
+        const selectedStatus = statusFilter.value;
+
+        const filtered = allBookings.filter(b => {
+          const matchesSearch = 
+            b.reference.toLowerCase().includes(searchTerm) ||
+            b.name.toLowerCase().includes(searchTerm) ||
+            b.contact.toLowerCase().includes(searchTerm) ||
+            b.email.toLowerCase().includes(searchTerm);
+
+          const matchesStatus = selectedStatus === "all" || b.status === selectedStatus;
+
+          return matchesSearch && matchesStatus;
+        });
+
+        if (filtered.length === 0) {
+          tableContainer.classList.add("hidden");
+          emptyState.classList.remove("hidden");
+          return;
+        }
+
+        emptyState.classList.add("hidden");
+        tbody.innerHTML = "";
+
+        filtered.forEach(b => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td><strong>${b.reference}</strong></td>
+            <td>${b.services ? b.services.name : "N/A"}</td>
+            <td>${b.name}</td>
+            <td>${b.contact}<br><small style="color: var(--text-muted);">${b.email}</small></td>
+            <td>${formatDateReadable(b.booking_date)}<br><small style="color: var(--text-muted);">${formatTime12Hr(b.booking_time)}</small></td>
+            <td>${b.guests}</td>
+            <td><span class="badge badge-${b.status}">${b.status}</span></td>
+            <td>
+              <div class="table-actions">
+                <button class="btn btn-primary" onclick="updateBookingStatus(${b.id}, 'confirm')" ${b.status === "confirmed" ? "disabled" : ""}>Confirm</button>
+                <button class="btn btn-secondary" onclick="updateBookingStatus(${b.id}, 'cancel')" ${b.status === "cancelled" ? "disabled" : ""}>Cancel</button>
+                <button class="btn btn-danger" onclick="deleteBookingItem(${b.id})">Delete</button>
+              </div>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        tableContainer.classList.remove("hidden");
+      }
+
+      window.updateBookingStatus = async function (id, action) {
+        try {
+          const res = await fetch(`/api/admin/bookings/${id}/${action}`, {
+            method: "PATCH"
+          });
+
+          if (handleAuthError(res)) return;
+
+          const data = await res.json();
+          if (res.ok) {
+            showBanner(`Booking ${action}ed successfully.`, "success");
+            fetchBookings();
+          } else {
+            showBanner(data.error || `Failed to ${action} booking.`, "error");
+          }
+        } catch (err) {
+          showBanner("Network error. Action failed.", "error");
+        }
+      };
+
+      window.deleteBookingItem = async function (id) {
+        if (!confirm("Are you sure you want to permanently delete this booking?")) {
+          return;
+        }
+
+        try {
+          const res = await fetch(`/api/admin/bookings/${id}`, {
+            method: "DELETE"
+          });
+
+          if (handleAuthError(res)) return;
+
+          const data = await res.json();
+          if (res.ok) {
+            showBanner("Booking deleted successfully.", "success");
+            fetchBookings();
+          } else {
+            showBanner(data.error || "Failed to delete booking.", "error");
+          }
+        } catch (err) {
+          showBanner("Network error. Action failed.", "error");
+        }
+      };
+
+      searchInput.addEventListener("input", renderTable);
+      statusFilter.addEventListener("change", renderTable);
+      refreshBtn.addEventListener("click", fetchBookings);
+
+      logoutBtn.addEventListener("click", async () => {
+        try {
+          const res = await fetch("/api/admin/logout", { method: "POST" });
+          window.location.href = "/admin/login.html";
+        } catch (err) {
+          window.location.href = "/admin/login.html";
+        }
+      });
+    });
+  </script>
+</body>
+</html>

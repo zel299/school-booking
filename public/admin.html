@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - IT Booking</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+    <header>
+        <h1>IT Tech Hub - Admin Portal</h1>
+        <nav>
+            <a href="/index.html">Main Site</a>
+            <a href="#" id="btn-logout" class="hidden">Logout</a>
+        </nav>
+    </header>
+
+    <div class="container">
+
+        <!-- Login Form -->
+        <div id="login-section" class="card" style="max-width: 400px; margin: 3rem auto;">
+            <h2>Admin Login</h2>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="admin-username">Username</label>
+                    <input type="text" id="admin-username" required>
+                </div>
+                <div class="form-group">
+                    <label for="admin-password">Password</label>
+                    <input type="password" id="admin-password" required>
+                </div>
+                <button type="submit" class="btn btn-success" style="width: 100%;">Login</button>
+            </form>
+            <p id="login-error" style="color: red; margin-top: 1rem;" class="hidden"></p>
+        </div>
+
+        <!-- Dashboard Panel -->
+        <div id="dashboard-section" class="card hidden">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>All Activity Bookings</h2>
+                <button class="btn" id="btn-refresh">Refresh Data</button>
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ref</th>
+                            <th>Customer</th>
+                            <th>Contact / Email</th>
+                            <th>Service</th>
+                            <th>Date & Time</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bookings-table-body">
+                        <tr><td colspan="7">Loading bookings...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="/js/admin.js"></script>
+</body>
+</html>
